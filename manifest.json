@@ -1,0 +1,12 @@
+{
+  "kind": "marinara.extension",
+  "version": "0.7.0",
+  "config": {
+    "name": "Marinara EPUB Exporter",
+    "description": "현재 Marinara Roleplay 채팅을 표준 EPUB 3 전자책으로 내보냅니다.",
+    "enabled": true,
+    "cssPath": "extension.css",
+    "jsPath": "extension.js",
+    "version": "0.7.0"
+  }
+}
