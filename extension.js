@@ -509,14 +509,64 @@
     return targets.length;
   }
 
+  function findConversationToolbar() {
+    const settingsButtons = document.querySelectorAll(
+      'button[data-chat-toolbar-panel-action="settings"]'
+    );
+    for (const settingsButton of settingsButtons) {
+      // Do not treat a Roleplay toolbar as Conversation fallback.
+      if (settingsButton.closest('[data-roleplay-top-controls="right"]')) continue;
+
+      const toolbar = settingsButton.parentElement;
+      if (!(toolbar instanceof HTMLElement)) continue;
+
+      const search = toolbar.querySelector(
+        'button[data-chat-toolbar-panel-action="search"]'
+      );
+      const gallery = toolbar.querySelector(
+        'button[data-chat-toolbar-panel-action="gallery"]'
+      );
+      if (search && gallery) return toolbar;
+    }
+    return null;
+  }
+
+  function ensureConversationToolbarButton() {
+    // RP owns the button whenever its known-good toolbar exists.
+    if (document.querySelector(ROLEPLAY_TOOLBAR_SELECTOR)) return false;
+
+    const toolbar = findConversationToolbar();
+    if (!toolbar) return false;
+
+    const existing = toolbar.querySelector(`:scope > [${TOOLBAR_BUTTON_ATTR}]`);
+    if (existing instanceof HTMLButtonElement && existing !== button) {
+      existing.remove();
+    }
+
+    if (button.parentElement !== toolbar) {
+      toolbar.prepend(button);
+    } else if (toolbar.firstElementChild !== button) {
+      toolbar.prepend(button);
+    }
+
+    button.hidden = false;
+    return true;
+  }
+
+  function ensureExporterToolbarButton() {
+    const roleplayCount = ensureRoleplayToolbarButtons();
+    if (roleplayCount > 0) return roleplayCount;
+    return ensureConversationToolbarButton() ? 1 : 0;
+  }
+
   // Match JSX Bridge's reliable toolbar mounting pattern without observing the whole chat DOM.
   // The toolbar may not exist until a Roleplay room is opened long after the extension loads,
   // so keep only a very cheap toolbar query on a 900ms interval.
-  ensureRoleplayToolbarButtons();
-  setTimeout(ensureRoleplayToolbarButtons, 120);
-  setTimeout(ensureRoleplayToolbarButtons, 900);
+  ensureExporterToolbarButton();
+  setTimeout(ensureExporterToolbarButton, 120);
+  setTimeout(ensureExporterToolbarButton, 900);
   const toolbarPoll = setInterval(() => {
-    ensureRoleplayToolbarButtons();
+    ensureExporterToolbarButton();
     if (!panel.hidden) placePanel();
   }, 900);
 
