@@ -1,4 +1,6 @@
-# Marinara EPUB Exporter v0.7.0
+# Marinara EPUB Exporter v0.7.1
+
+v0.7.1에서는 구형 상단 도구 행이 없는 Marinara Engine v2.5 채팅방에서도 기존 EPUB 버튼을 Chat Settings 아이콘 옆에 표시합니다. 내보내기 기능과 패널 동작은 그대로 유지합니다.
 
 # Marinara EPUB Exporter v0.3.1
 

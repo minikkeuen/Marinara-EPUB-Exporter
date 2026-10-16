@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "0.7.0";
+  const VERSION = "0.7.1";
   const ACTIVE_CHAT_KEY = "marinara-active-chat-id";
   const BUTTON_ID = "mari-epub-exporter-button";
   const PANEL_ID = "mari-epub-exporter-panel";
@@ -491,13 +491,20 @@
   button.setAttribute(TOOLBAR_BUTTON_ATTR, "true");
   button.className = "marinara-chat-toolbar-button flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] backdrop-blur-md transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] h-8 w-8 p-1.5";
 
+  function clearFloatingPlacement() {
+    if (!button.hasAttribute("data-chat-toolbar-legacy-entry")) return;
+    button.removeAttribute("data-chat-toolbar-legacy-entry");
+    for (const property of ["position", "left", "top", "z-index"]) button.style.removeProperty(property);
+  }
+
   function createRoleplayToolbarButton(target) {
-    if (!(target instanceof HTMLElement)) return null;
+    if (!(target instanceof HTMLElement) || !target.getClientRects().length) return null;
     const existing = target.querySelector(`:scope > [${TOOLBAR_BUTTON_ATTR}]`);
     if (existing instanceof HTMLButtonElement) {
       if (existing !== button) button.remove();
       return existing;
     }
+    clearFloatingPlacement();
     target.appendChild(button);
     button.hidden = false;
     return button;
@@ -505,8 +512,9 @@
 
   function ensureRoleplayToolbarButtons() {
     const targets = document.querySelectorAll(ROLEPLAY_TOOLBAR_SELECTOR);
-    targets.forEach((target) => createRoleplayToolbarButton(target));
-    return targets.length;
+    let count = 0;
+    targets.forEach((target) => { if (createRoleplayToolbarButton(target)) count += 1; });
+    return count;
   }
 
   function findConversationToolbar() {
@@ -518,7 +526,7 @@
       if (settingsButton.closest('[data-roleplay-top-controls="right"]')) continue;
 
       const toolbar = settingsButton.parentElement;
-      if (!(toolbar instanceof HTMLElement)) continue;
+      if (!(toolbar instanceof HTMLElement) || !toolbar.getClientRects().length) continue;
 
       const search = toolbar.querySelector(
         'button[data-chat-toolbar-panel-action="search"]'
@@ -533,7 +541,7 @@
 
   function ensureConversationToolbarButton() {
     // RP owns the button whenever its known-good toolbar exists.
-    if (document.querySelector(ROLEPLAY_TOOLBAR_SELECTOR)) return false;
+    if ([...document.querySelectorAll(ROLEPLAY_TOOLBAR_SELECTOR)].some((target) => target.getClientRects().length)) return false;
 
     const toolbar = findConversationToolbar();
     if (!toolbar) return false;
@@ -543,6 +551,7 @@
       existing.remove();
     }
 
+    clearFloatingPlacement();
     if (button.parentElement !== toolbar) {
       toolbar.prepend(button);
     } else if (toolbar.firstElementChild !== button) {
@@ -553,10 +562,33 @@
     return true;
   }
 
+  function ensureFloatingToolbarButton() {
+    const settings = document.querySelector('button.mari-window-bubble[data-window="chat-settings-button"]');
+    if (!(settings instanceof HTMLButtonElement) || !settings.getClientRects().length) {
+      if (button.hasAttribute("data-chat-toolbar-legacy-entry")) button.remove();
+      return false;
+    }
+    if (button.parentElement !== document.body) document.body.append(button);
+    button.hidden = false;
+    button.setAttribute("data-chat-toolbar-legacy-entry", BUTTON_ID);
+    const anchor = settings.getBoundingClientRect();
+    const width = button.getBoundingClientRect().width || 32;
+    const height = button.getBoundingClientRect().height || 32;
+    const left = anchor.left - width - 8;
+    const x = left >= 8 ? left : Math.max(8, Math.min(anchor.left, innerWidth - width - 8));
+    const y = left >= 8 ? anchor.top + (anchor.height - height) / 2 : anchor.bottom + 8;
+    button.style.position = "fixed";
+    button.style.left = `${x}px`;
+    button.style.top = `${Math.max(8, Math.min(y, innerHeight - height - 8))}px`;
+    button.style.zIndex = getComputedStyle(settings).zIndex;
+    return true;
+  }
+
   function ensureExporterToolbarButton() {
     const roleplayCount = ensureRoleplayToolbarButtons();
     if (roleplayCount > 0) return roleplayCount;
-    return ensureConversationToolbarButton() ? 1 : 0;
+    if (ensureConversationToolbarButton()) return 1;
+    return ensureFloatingToolbarButton() ? 1 : 0;
   }
 
   // Match JSX Bridge's reliable toolbar mounting pattern without observing the whole chat DOM.
